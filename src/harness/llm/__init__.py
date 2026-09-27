@@ -1,21 +1,37 @@
-from harness.llm.base import (
+from harness.llm.client import (
     LLMClient,
     LLMError,
-    LLMRefusalError,
+    LLMErrorCode,
+    LLMNotConfiguredError,
+    available_providers,
+    create_llm_client,
+    register_provider,
+)
+from harness.llm.models import (
     LLMResponse,
     Message,
+    Role,
+    StopReason,
+    ToolCall,
+    ToolDefinition,
+    ToolResult,
     Usage,
 )
-from harness.llm.factory import create_llm_client
-from harness.llm.mock_client import MockLLMClient
 
 __all__ = [
     "LLMClient",
     "LLMError",
-    "LLMRefusalError",
+    "LLMErrorCode",
+    "LLMNotConfiguredError",
     "LLMResponse",
     "Message",
-    "MockLLMClient",
+    "Role",
+    "StopReason",
+    "ToolCall",
+    "ToolDefinition",
+    "ToolResult",
     "Usage",
+    "available_providers",
     "create_llm_client",
+    "register_provider",
 ]

@@ -1,65 +1,55 @@
-"""Basic logging: human-readable text or JSON lines, to stderr and optionally a file."""
+"""Logging: full detail to a log file (with credentials redacted); concise console output.
+
+In TUI mode nothing is written to the console by the logging system (it would corrupt the
+live display); the UI shows concise messages and points to the log file.
+"""
 
 from __future__ import annotations
 
-import json
 import logging
 import sys
-from datetime import datetime, timezone
+import tempfile
+from pathlib import Path
 
-from harness.config import LoggingConfig
+from harness.orchestrator.events import redact
 
-ROOT_LOGGER = "harness"
-
-# Attributes present on every LogRecord; anything else was passed via `extra=`.
-_STANDARD_ATTRS = set(vars(logging.makeLogRecord({}))) | {"message", "asctime"}
+LOG_FORMAT = "%(asctime)s %(levelname)-8s %(name)s: %(message)s"
 
 
-class JsonFormatter(logging.Formatter):
-    def format(self, record: logging.LogRecord) -> str:
-        payload: dict[str, object] = {
-            "ts": datetime.fromtimestamp(record.created, tz=timezone.utc).isoformat(),
-            "level": record.levelname,
-            "logger": record.name,
-            "msg": record.getMessage(),
-        }
-        for key, value in vars(record).items():
-            if key not in _STANDARD_ATTRS and not key.startswith("_"):
-                payload[key] = value
-        if record.exc_info:
-            payload["exc"] = self.formatException(record.exc_info)
-        return json.dumps(payload, default=str)
+class RedactingFilter(logging.Filter):
+    def filter(self, record: logging.LogRecord) -> bool:
+        record.msg = redact(record.getMessage())
+        record.args = ()
+        return True
 
 
-TEXT_FORMAT = "%(asctime)s %(levelname)-8s %(name)s: %(message)s"
+def default_log_path() -> Path:
+    return Path(tempfile.gettempdir()) / "ai-coding-harness" / "harness.log"
 
 
-def setup_logging(config: LoggingConfig) -> logging.Logger:
-    """Configure the ``harness`` logger tree. Idempotent: replaces prior handlers."""
-    logger = logging.getLogger(ROOT_LOGGER)
-    logger.setLevel(config.level)
-    logger.propagate = False
-    for handler in list(logger.handlers):
-        logger.removeHandler(handler)
-        handler.close()
+def configure_logging(level: int, *, log_file: str | None = None, console: bool = True) -> Path | None:
+    """Configure the root logger. Returns the log file path (None if it cannot be opened)."""
+    root = logging.getLogger()
+    for handler in list(root.handlers):
+        root.removeHandler(handler)
+    root.setLevel(logging.DEBUG)
+    redactor = RedactingFilter()
 
-    formatter: logging.Formatter = (
-        JsonFormatter() if config.format == "json" else logging.Formatter(TEXT_FORMAT)
-    )
+    if console:
+        stream = logging.StreamHandler(sys.stderr)
+        stream.setLevel(level)
+        stream.setFormatter(logging.Formatter(LOG_FORMAT))
+        stream.addFilter(redactor)
+        root.addHandler(stream)
 
-    handlers: list[logging.Handler] = [logging.StreamHandler(sys.stderr)]
-    if config.file is not None:
-        config.file.parent.mkdir(parents=True, exist_ok=True)
-        handlers.append(logging.FileHandler(config.file, encoding="utf-8"))
-
-    for handler in handlers:
-        handler.setFormatter(formatter)
-        logger.addHandler(handler)
-    return logger
-
-
-def get_logger(name: str) -> logging.Logger:
-    """Return a child of the harness logger, e.g. get_logger('llm') -> 'harness.llm'."""
-    if name == ROOT_LOGGER or name.startswith(ROOT_LOGGER + "."):
-        return logging.getLogger(name)
-    return logging.getLogger(f"{ROOT_LOGGER}.{name}")
+    path = Path(log_file).expanduser() if log_file else default_log_path()
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        file_handler = logging.FileHandler(path, encoding="utf-8")
+    except OSError:
+        return None
+    file_handler.setLevel(logging.DEBUG)
+    file_handler.setFormatter(logging.Formatter(LOG_FORMAT))
+    file_handler.addFilter(redactor)
+    root.addHandler(file_handler)
+    return path

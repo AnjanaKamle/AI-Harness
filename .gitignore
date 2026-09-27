@@ -9,25 +9,27 @@ dist/
 .venv/
 venv/
 
-# Tooling caches
+# Test / coverage / tooling caches
 .pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
 .mypy_cache/
 .ruff_cache/
-.coverage
-htmlcov/
 
-# Secrets
+# Secrets — never commit
 .env
 .env.*
 !.env.example
-
-# Runtime output
-logs/*
-!logs/.gitkeep
-workspace/*
-!workspace/.gitkeep
+*.pem
+*.key
 
 # OS / editors
 .DS_Store
 .idea/
 .vscode/
+
+# workspace - debugging/ tester folders
+workspace/*
+!workspace/.gitkeep

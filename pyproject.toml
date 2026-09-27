@@ -3,48 +3,28 @@ requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "ai-harness"
+name = "ai-coding-harness"
 version = "0.1.0"
 description = "Multi-agent AI coding harness (LCC x DevClub AI Harness Hackathon 2026)"
 readme = "README.md"
-requires-python = ">=3.10"
-dependencies = [
-    "anthropic>=1.0",
-]
+requires-python = ">=3.11"
+# rich: terminal UI (presentation only). The provider SDK for the official evaluation model
+# is added once the hackathon specifies it.
+dependencies = ["rich>=13"]
 
 [project.optional-dependencies]
-dev = [
-    "pytest>=8",
-    "pytest-cov>=5",
-    "ruff>=0.6",
-    "mypy>=1.10",
-]
+dev = ["pytest>=8"]
 
 [project.scripts]
-harness = "harness.cli:main"
+harness = "harness.main:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
 
+[tool.setuptools.package-data]
+harness = ["demo/sample/*", "demo/sample/**/*"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-pythonpath = ["."]
 addopts = "-ra"
-markers = [
-    "integration: tests that call a real LLM provider (skipped by default)",
-]
-
-[tool.ruff]
-line-length = 100
-target-version = "py310"
-src = ["src", "tests"]
-
-[tool.ruff.lint]
-select = ["E", "F", "I", "B", "UP", "SIM"]
-
-[tool.mypy]
-python_version = "3.10"
-strict = true
-mypy_path = "src"
-packages = ["harness"]
-ignore_missing_imports = true
+markers = ["live: optional tests that call a real LLM provider (skipped unless configured)"]
